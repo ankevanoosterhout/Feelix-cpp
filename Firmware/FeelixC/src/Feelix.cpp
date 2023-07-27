@@ -206,37 +206,44 @@ void Feelix::process_data(char* cmd) {
 
     switch (command) {
         case 'T':
-            TorqueTuner_Data(cmd);
-            break;
-        case 'M':
-            BLDC_Data(cmd);
-            break;
+            {TorqueTuner_Data(cmd);
+            break;}
+        // case 'M':
+        //     BLDC_Data(cmd);
+        //     break;
         case 'E':
-            Effect_Data(cmd);
-            break;
+            {Effect_Data(cmd);
+            break;}
         case 'D':
-            Data_Points(cmd);   
-            break; 
+            {Data_Points(cmd);   
+            break; }
         case 'C': 
-            BLDC_Config(cmd);            
-            break;
+            {BLDC_Config(cmd);            
+            break;}
         case 'F':
-            Filter_Data(cmd);
-            break;
+            {Filter_Data(cmd);
+            break;}
         case 'S':
-            Serial.println((String) "S" + version.major + '.' + version.minor + '.' + version.patch);
+            {Serial.println((String) "S" + version.major + '.' + version.minor + '.' + version.patch);
             Serial.println("*");
-            break;
+            break;}
         case 'G':
-            Return_Data(cmd);
-            break;
+           { Return_Data(cmd);
+            break;}
         case 'R':
+            {Serial.println("*");
+            break;}
+        case 'L':
+            {int devices = listDevices();
+            Serial.println((String) "Ldevices " + devices + " " + I2C_state);
+            break;}
+        default:
+        {
+            Serial.print("Unrecognized command:");
+            Serial.println((String) cmd);
             Serial.println("*");
             break;
-        case 'L':
-            int devices = listDevices();
-            Serial.println((String) "Ldevices " + devices + " " + I2C_state);
-            break;
+            }
     }
   
   delay(5);
@@ -335,7 +342,7 @@ void Feelix::BLDC_Config(char* user_command) {
 
     start_time = millis();    
 
-    
+    Serial.println("recieved");
     // Serial.print((String) "Z" + id + ":");
     // Serial.print(bldc->zero_electric_angle, 18);
     // Serial.print(":");
@@ -384,7 +391,6 @@ void Feelix::update() {
 void Feelix::run(TorqueTuner* TT){
     angle = (float) TT->angle;
     angle_deg = angle/10.0;
-    
     velocity = TT->velocity;
     getDirection();  
     f_velocity = filterVelocity();
@@ -398,7 +404,6 @@ void Feelix::run(TorqueTuner* TT){
         // Serial.print(PROCESSING);
         // Serial.println("**********");
     if (RUN && !PROCESSING) {
-    // if (true) {
         current_time = (millis() - start_time);
 
 
@@ -406,14 +411,11 @@ void Feelix::run(TorqueTuner* TT){
             target_val = 0.0;
 
         } else {
-            Serial.println("TEST STOP 2");
-            Serial.println(library.effect_count);
             for (int e = 0; e < library.effect_count; e++) {
 
                 active_effect = library.effect[e].isActive(angle_deg, rotation_dir, range, current_time);
                 
                 if (active_effect > -1) {
-                    Serial.println("TEST STOP 3");
                     switch(library.effect[e].control_type) {
 
                         // case Control_type::POSITION: 
@@ -428,7 +430,8 @@ void Feelix::run(TorqueTuner* TT){
                         case Control_type::TORQUE: 
                             if (control_type == Control_type::UNDEFINED || control_type == Control_type::TORQUE) {
                                 control_type = Control_type::TORQUE;
-                                target = library.effect[e].getArrayPointerValue(library.effect[e].copy[active_effect], angle_deg, range)*1000.0;
+                                target = library.effect[e].getArrayPointerValue(library.effect[e].copy[active_effect], angle_deg, range);
+                                Serial.printf("Angle from TorqueTuner: %f",angle_deg);
                                 Serial.print("********* Target: ");
                                 Serial.print(target);
                                 Serial.println(
@@ -846,12 +849,6 @@ float Feelix::filterVelocity() {
 
 void Feelix::TorqueTuner_Data(char* user_command){
     char identifier = user_command[1];
-
-    char sub_cmd = user_command[2];
-
-    switch(sub_cmd){
-        
-    }
 }
 
 
