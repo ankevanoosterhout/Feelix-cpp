@@ -89,7 +89,7 @@ class Feelix
     char* returnDataOnRequest();
     
     TorqueTuner* TT;
-    
+    void TorqueTuner_Lib_Reset();
 
     BLDCMotor* bldc;
     BLDCDriver3PWM* driver;

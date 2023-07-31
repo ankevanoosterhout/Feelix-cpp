@@ -37,8 +37,11 @@ void TorqueTuner::update() {
 	};
 	if (active_mode == &wall) {
 		torque = static_cast<int16_t>(active_mode->calc(this));
+		
 	} else
 		torque = static_cast<int16_t>(active_mode->calc(this) - active_mode->damping * velocity);
+
+	// Serial.printf("Torque Value of active mode: %i \n",torque);
 }
 
 void TorqueTuner::update_angle() {
@@ -166,6 +169,8 @@ void TorqueTuner::update_trig() {
 int32_t TorqueTuner::getTime() {
 	return esp_timer_get_time();
 }
+
+
 
 int16_t Wall::calc(void* ptr) {
 	TorqueTuner* knob = (TorqueTuner*)ptr;

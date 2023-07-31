@@ -398,11 +398,6 @@ void Feelix::run(TorqueTuner* TT){
     control_type = Control_type::UNDEFINED;
     BREAK_LOOP = false;
 
-    // Serial.print("******TorqueTuners Angle: ");
-        // Serial.print(RUN);
-        // Serial.print(" : ");
-        // Serial.print(PROCESSING);
-        // Serial.println("**********");
     if (RUN && !PROCESSING) {
         current_time = (millis() - start_time);
 
@@ -418,19 +413,11 @@ void Feelix::run(TorqueTuner* TT){
                 if (active_effect > -1) {
                     switch(library.effect[e].control_type) {
 
-                        // case Control_type::POSITION: 
-                        //     if (control_type == Control_type::UNDEFINED || control_type == Control_type::POSITION) {
-                        //         control_type = Control_type::POSITION;
-                        //         float value = library.effect[e].getArrayPointerValue(library.effect[e].copy[active_effect], angle_deg, range);
-                        //         target += (library.getValueAtPointer(value, library.effect[e].data_ptr, 2, 0) * library.effect[e].scale.x * (library.effect[e].flip.x ? -1 : 1));
-                        //         voltage += (library.effect[e].getEffectVoltage(library.getValueAtPointer(value, library.effect[e].data_ptr, 2, 1)) * driver->voltage_power_supply); // Velocity?
-                        //     }                 
-                        //     break;
-
                         case Control_type::TORQUE: 
                             if (control_type == Control_type::UNDEFINED || control_type == Control_type::TORQUE) {
                                 control_type = Control_type::TORQUE;
-                                target = library.effect[e].getArrayPointerValue(library.effect[e].copy[active_effect], angle_deg, range);
+                                float ptr = library.effect[e].getArrayPointerValue(library.effect[e].copy[active_effect], angle_deg, range);
+                                target = library.getValueAtPointer(ptr, library.effect[e].data_ptr, 1, 0)*50.0; //TODO: Should technically add a gain value instead of a flat 25 etc
                                 Serial.printf("Angle from TorqueTuner: %f",angle_deg);
                                 Serial.print("********* Target: ");
                                 Serial.print(target);
@@ -438,24 +425,11 @@ void Feelix::run(TorqueTuner* TT){
                                     "*****************"
                                 );
                                 TT->torque = target;
-                                // target += (library.effect[e].getEffectVoltage(library.getValueAtPointer(value, library.effect[e].data_ptr, 1, 0)) * driver->voltage_power_supply); 
-                                // driver->voltage_limit = vol_limit;
+                                
                             }
                             break;
 
-                        // case Control_type::VELOCITY: 
-                        //     control_type = Control_type::VELOCITY;
-                        //     library.ptr.value = library.effect[e].getArrayPointerValueVelocityEffect(current_time);
-                        //     target = (library.effect[e].getVelocityOverTime(library.getValueAtPointerInt(library.ptr.value)) * bldc->velocity_limit); 
-                        //     driver->voltage_limit = driver->voltage_power_supply;
-                        //     break;
-
-                        // case Control_type::VELOCITY_ANGLE: 
-                        //     control_type = Control_type::VELOCITY_ANGLE;
-                        //     library.ptr.value = library.effect[e].getArrayPointerValueVelocityEffect(current_time);
-                        //     target = library.effect[e].getAngleOverTime(library.getValueAtPointerInt(library.ptr.value)); 
-                        //     driver->voltage_limit = driver->voltage_power_supply;
-                        //     break;
+                        
 
                     }
 
@@ -466,172 +440,14 @@ void Feelix::run(TorqueTuner* TT){
             }
         }
     }
-    
-    // // bldc->loopFOC();
-    // if (RUN && loop_count % 2 == 0) {
-    //     move();
-
-    //     if (loop && current_time > range) {
-    //         start_time = millis();
-    //     }
-    // } else if (MOVE && loop_count % 2 == 0) {
-    //     moveTo();
-    // }
-}
-
-void Feelix::run(uint8_t loop_count) {
-   
-    angle = (bldc->shaft_angle) * sensor_dir + sensor_offset; //(180 / 3.14159);
-    velocity = bldc->shaft_velocity * sensor_dir;
-    angle_deg = angle * _PI_DEG;
-    getDirection();  
-    f_velocity = filterVelocity();
-    target = 0.0;
-    voltage = 0.0;
-    control_type = Control_type::UNDEFINED;
-    BREAK_LOOP = false;
-
-    if (RUN && !PROCESSING && loop_count % 2 == 0) {
-
-        current_time = (millis() - start_time);
-
-        if (constrain_range && (angle_deg > (start_pos + range) || angle <= start_pos)) {
-            target_val = 0.0;
-        } else {
-            for (int e = 0; e < library.effect_count; e++) {
-
-                active_effect = library.effect[e].isActive(angle_deg, rotation_dir, range, current_time);
-
-                if (active_effect > -1) {
-                    
-                    switch(library.effect[e].control_type) {
-
-                        case Control_type::POSITION: 
-                            if (control_type == Control_type::UNDEFINED || control_type == Control_type::POSITION) {
-                                control_type = Control_type::POSITION;
-                                float value = library.effect[e].getArrayPointerValue(library.effect[e].copy[active_effect], angle_deg, range);
-                                target += (library.getValueAtPointer(value, library.effect[e].data_ptr, 2, 0) * library.effect[e].scale.x * (library.effect[e].flip.x ? -1 : 1));
-                                voltage += (library.effect[e].getEffectVoltage(library.getValueAtPointer(value, library.effect[e].data_ptr, 2, 1)) * driver->voltage_power_supply); // Velocity?
-                            }                 
-                            break;
-
-                        case Control_type::TORQUE: 
-                            if (control_type == Control_type::UNDEFINED || control_type == Control_type::TORQUE) {
-                                control_type = Control_type::TORQUE;
-                                float value = library.effect[e].getArrayPointerValue(library.effect[e].copy[active_effect], angle_deg, range);
-                                target += (library.effect[e].getEffectVoltage(library.getValueAtPointer(value, library.effect[e].data_ptr, 1, 0)) * driver->voltage_power_supply); 
-                                driver->voltage_limit = vol_limit;
-                            }
-                            break;
-
-                        case Control_type::VELOCITY: 
-                            control_type = Control_type::VELOCITY;
-                            library.ptr.value = library.effect[e].getArrayPointerValueVelocityEffect(current_time);
-                            target = (library.effect[e].getVelocityOverTime(library.getValueAtPointerInt(library.ptr.value)) * bldc->velocity_limit); 
-                            driver->voltage_limit = driver->voltage_power_supply;
-                            break;
-
-                        case Control_type::VELOCITY_ANGLE: 
-                            control_type = Control_type::VELOCITY_ANGLE;
-                            library.ptr.value = library.effect[e].getArrayPointerValueVelocityEffect(current_time);
-                            target = library.effect[e].getAngleOverTime(library.getValueAtPointerInt(library.ptr.value)); 
-                            driver->voltage_limit = driver->voltage_power_supply;
-                            break;
-
-                    }
-
-                    if (library.effect[e].effect_type == Effect_type::NOTSET) { BREAK_LOOP = true; }
-                }    
-
-                if (BREAK_LOOP) { break; }
-            }
-        }
-    }
-    
-    bldc->loopFOC();
-    if (RUN && loop_count % 2 == 0) {
-        move();
-
-        if (loop && current_time > range) {
-            start_time = millis();
-        }
-    } else if (MOVE && loop_count % 2 == 0) {
-        moveTo();
-    }
 }
 
 
 
 
-void Feelix::move() {
-    target_val = 0.0;
-
-    switch(control_type) {
-        case Control_type::POSITION: {
-            target_val = (bldc->shaft_angle + (target * sensor_dir) + sensor_offset);
-            driver->voltage_limit = voltage;
-            bldc->controller = MotionControlType::angle;
-            float newTarget = applyFilters(1, target_val);
-            bldc->move(newTarget);
-
-            // velocityLimitProtection();
-        }
-        break;
-
-        case Control_type::TORQUE:  {
-            target_val = (target * sensor_dir);
-            bldc->controller = MotionControlType::torque;
-            float newTarget = applyFilters(0, target_val);
-            bldc->move(newTarget);
-
-            // velocityLimitProtection();
-        } 
-        break;
-
-        case Control_type::VELOCITY:  {
-            target_val = target;
-            bldc->controller = MotionControlType::velocity;
-            float newTarget = applyFilters(2, target_val);
-            
-            bldc->move(newTarget);
-        }
-        break;
-
-        case Control_type::VELOCITY_ANGLE:  {
-            target_val = target * sensor_dir;
-            float newTarget = applyFilters(3, target_val);
-            bldc->controller = MotionControlType::angle;
-            bldc->move(newTarget);
-        } 
-        break;
-
-        case Control_type::UNDEFINED:  {
-            target_val = 0.0;
-            bldc->controller = MotionControlType::torque;
-            bldc->move(0.0);
-        }
-        default : {
-            target_val = 0.0;
-            bldc->controller = MotionControlType::torque;
-            bldc->move(0.0); 
-        }
-        break;
-    }  
-}
 
 
 
-void Feelix::moveTo() {
-    
-    if (angle - 0.015 > target_val && angle + 0.015 < target_val) {
-        MOVE = false;
-        target_val = 0.0;
-        bldc->controller = MotionControlType::torque;
-    } else {
-        bldc->controller = MotionControlType::angle;
-    }
-    bldc->move(target_val); 
-}
 
 
 
@@ -673,73 +489,13 @@ float Feelix::applyFilters(int controlType, float targetValue) {
 
 
 
-void Feelix::playHapticEffectAtAngle(FeelixEffect effect, float position) {
-    effect.copy[0] = angle;
-
-    if (effect.isHapticEffectActive(angle_deg, position, rotation_dir, range)) {
-     
-        switch(effect.control_type) {
-            case Control_type::POSITION: 
-                if (control_type == Control_type::UNDEFINED || control_type == Control_type::POSITION) {
-                    control_type = Control_type::POSITION;
-                    volatile float value = effect.getArrayPointerValue(position, angle_deg, range);
-                    target += effect.getValueAtPointer(value, 2, 0) * effect.scale.x * (effect.flip.x ? -1 : 1);
-                    voltage += (effect.getEffectVoltage(effect.getValueAtPointer(value, 2, 1)) * driver->voltage_power_supply); 
-                }                 
-                break;
-
-            case Control_type::TORQUE: 
-                if (control_type == Control_type::UNDEFINED || control_type == Control_type::TORQUE) {
-                    control_type = Control_type::TORQUE;
-                    volatile float value = effect.getArrayPointerValue(position, angle_deg, range);
-                    target += (effect.getEffectVoltage(effect.getValueAtPointer(value, 1, 0)) * driver->voltage_power_supply); 
-                    driver->voltage_limit = vol_limit;
-                }
-                break;
-
-            case Control_type::VELOCITY: 
-                break;
-            case Control_type::VELOCITY_ANGLE: 
-                break;
-            
-        }
-    }
-}
 
 
 
 
 
-void Feelix::playVelocityEffect(FeelixEffect effect) {
-    
-    if (effect.isVelocityEffectActive(angle_deg, current_time)) {
-     
-        switch(effect.control_type) {
-            case Control_type::VELOCITY: 
-                if (control_type == Control_type::UNDEFINED) {
-                    control_type = Control_type::VELOCITY;
-                    volatile uint16_t value = effect.getPointerValueVelocityEffect(current_time);
-                    target = (effect.getVelocityOverTime(effect.getValueAtPointer(value, 1, 0)) * bldc->velocity_limit); 
-                    driver->voltage_limit = driver->voltage_power_supply;
-                }
-                break;
 
-            case Control_type::VELOCITY_ANGLE: 
-                if (control_type == Control_type::UNDEFINED) {
-                    control_type = Control_type::VELOCITY_ANGLE;
-                    volatile uint16_t value = effect.getPointerValueVelocityEffect(current_time);
-                    target = effect.getAngleOverTime(effect.getValueAtPointer(value, 1, 0)); 
-                    driver->voltage_limit = driver->voltage_power_supply;
-                }
-                break;
-            case Control_type::POSITION: 
-                break;
-            case Control_type::TORQUE: 
-                break;
-            
-        }
-    }
-}
+
 
 
 
@@ -850,7 +606,6 @@ float Feelix::filterVelocity() {
 void Feelix::TorqueTuner_Data(char* user_command){
     char identifier = user_command[1];
 }
-
 
 void Feelix::BLDC_Data(char* user_command){ 
    
