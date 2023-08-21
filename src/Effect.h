@@ -35,6 +35,7 @@ enum Control_type {
     TORQUE          = 2,
     VELOCITY        = 1,
     VELOCITY_ANGLE  = 4,
+    MIDI            = 5,
     UNDEFINED       = -12345   //not yet known or invalid state
 };
 

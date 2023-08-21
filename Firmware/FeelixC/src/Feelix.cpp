@@ -197,7 +197,8 @@ void Feelix::receiveDataI2C() {
 
 
 void Feelix::process_data(char* cmd) { 
-    printf("Command Running \n");
+    Serial.println((String) cmd);
+
     char command = cmd[0];
     // char* fullCommand = strtok(cmd, "&");
     // fullCommand = strtok(0, "&");
@@ -407,30 +408,37 @@ void Feelix::run(TorqueTuner* TT){
 
         } else {
             for (int e = 0; e < library.effect_count; e++) {
+                
 
                 active_effect = library.effect[e].isActive(angle_deg, rotation_dir, range, current_time);
-                
+                // Serial.println(active_effect);
                 if (active_effect > -1) {
                     switch(library.effect[e].control_type) {
-
+                        
                         case Control_type::TORQUE: 
                             if (control_type == Control_type::UNDEFINED || control_type == Control_type::TORQUE) {
                                 control_type = Control_type::TORQUE;
                                 float ptr = library.effect[e].getArrayPointerValue(library.effect[e].copy[active_effect], angle_deg, range);
                                 target = library.getValueAtPointer(ptr, library.effect[e].data_ptr, 1, 0)*50.0; //TODO: Should technically add a gain value instead of a flat 25 etc
-                                Serial.printf("Angle from TorqueTuner: %f",angle_deg);
-                                Serial.print("********* Target: ");
-                                Serial.print(target);
-                                Serial.println(
-                                    "*****************"
-                                );
+                                // Serial.printf("Angle from TorqueTuner: %f",angle_deg);
+                                // Serial.print("********* Target: ");
+                                // Serial.print(target);
+                                // Serial.println(
+                                //     "*****************"
+                                // );
                                 TT->torque = target;
                                 
                             }
                             break;
-
-                        
-
+                        case Control_type::MIDI:
+                            if (control_type == Control_type::UNDEFINED || control_type == Control_type::MIDI) {
+                                control_type = Control_type::MIDI;
+                                float ptr = library.effect[e].getArrayPointerValue(library.effect[e].copy[active_effect], angle_deg, range);
+                                target = library.getValueAtPointer(ptr, library.effect[e].data_ptr, 1, 0);
+                                int cmd = library.effect[e].midi_config.message_type + library.effect[e].midi_config.channel;
+                                TT->midi_CC_out(library.effect[e].midi_config.channel, library.effect[e].midi_config.data1, target);
+                            }
+                            break;
                     }
 
                     if (library.effect[e].effect_type == Effect_type::NOTSET) { BREAK_LOOP = true; }
@@ -843,6 +851,13 @@ void Feelix::Effect_Data(char* user_command){
 
         switch(sub_cmd){
             
+            case CMD_E_MIDI_CC:
+                library.effect[effect_id].midi_config.channel = atoi(value);
+                value = strtok(0, ":");
+                library.effect[effect_id].midi_config.message_type = atoi(value);
+                value = strtok(0, ":");
+                library.effect[effect_id].midi_config.data1 = atoi(value);
+                break;
             case CMD_E_DIR:  
                 library.effect[effect_id].direction.cw = atoi(value) == 1 ? true : false;
                 value = strtok(0, ":");
@@ -870,7 +885,6 @@ void Feelix::Effect_Data(char* user_command){
                 library.effect[effect_id].infinite = atoi(value) == 1 ? true : false;
                 break;
             case CMD_E_CONTROL_TYPE:
-                
                 if (atoi(value) == 0) {
                     library.effect[effect_id].control_type = Control_type::TORQUE;
                 } else if (atoi(value) == 1) {
@@ -881,6 +895,8 @@ void Feelix::Effect_Data(char* user_command){
                 } else if (atoi(value) == 3) {
                     library.effect[effect_id].control_type = Control_type::VELOCITY_ANGLE;
                     RUN = false;
+                } else if (atoi(value) == 4) {
+                    library.effect[effect_id].control_type = Control_type::MIDI;
                 }
                 break;
             case CMD_E_EFFECT_TYPE: 

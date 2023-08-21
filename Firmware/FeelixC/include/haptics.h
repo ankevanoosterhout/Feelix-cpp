@@ -39,7 +39,7 @@ public:
     int16_t calc_index(void* ptr);
     void reset(int16_t angle_);
 
-    float scale_default, stretch_default, min, max, damping, target_velocity_default;
+    float scale_default, stretch_default, min, max, damping, target_velocity_default, previous_value;
     int offset = 0;
 
     bool wrap_output = false;
@@ -200,6 +200,8 @@ public:
     float calc_acceleration(float velocity_);
     float filter(float x);
     float gate(float val, float threshold, float floor);
+
+    void midi_CC_out(int channel, int type, int value);
     int32_t getTime();
 
     void set_mode(MODE mode_);

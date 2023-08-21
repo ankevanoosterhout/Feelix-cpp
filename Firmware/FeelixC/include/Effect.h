@@ -12,6 +12,12 @@ struct df {
     volatile float y;
 };
 
+struct midi_cc {
+    volatile int channel;
+    volatile int message_type;
+    volatile int data1;
+};
+
 struct db {
     volatile bool x;
     volatile bool y;
@@ -35,6 +41,7 @@ enum Control_type {
     TORQUE          = 2,
     VELOCITY        = 1,
     VELOCITY_ANGLE  = 4,
+    MIDI            = 5,
     UNDEFINED       = -12345   //not yet known or invalid state
 };
 
@@ -67,6 +74,7 @@ class Effect {
     volatile float position;
     df scale;
     db flip;
+    midi_cc midi_config;
     
     Control_type control_type;
     volatile uint16_t data_ptr;

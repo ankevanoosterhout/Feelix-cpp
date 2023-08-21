@@ -76,13 +76,17 @@ int8_t Effect::isActive(float angle_deg, int8_t cw, int range, int time) {
         }
 
     } else {
-    
+        
+        if (control_type == Control_type::MIDI) return 0;
+        
         if ((cw == 1 && !direction.cw) || (cw == -1 && !direction.ccw)) {  return -1; }
 
         if (effect_type == Effect_type::INDEPENDENT) { return 0; } 
 
         if (infinite) { angle_deg = getInfiniteAngle(angle_deg, range); }
         
+        
+
         for (int i = 0; i < copy_count; i++) {
             if (angle_deg >= copy[i] && angle_deg <= (copy[i] + angle)) {
                 return i;

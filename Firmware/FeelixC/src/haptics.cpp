@@ -157,6 +157,13 @@ float TorqueTuner::filter(float x) {
 	return x;
 }
 
+void TorqueTuner::midi_CC_out(int channel, int type, int value){
+	// 0xB0 is the CC out value
+	// add case handling if values are not within the ranges 
+	int message_out = 0xB0 + channel;
+	Serial.printf("%i %i %i \n", message_out, type, value);
+}
+
 float TorqueTuner::gate(float val, float threshold, float floor) {
 	return abs(val) > threshold ? val : floor;
 }
@@ -197,6 +204,11 @@ int16_t Click::calc(void* ptr) {
 	} else {
 		val = static_cast<float>((tf_click_2[idx])) / TABLE_RESOLUTION * knob->scale;
 	}
+	if(val == 0.0 && previous_value != val){
+		knob->midi_CC_out(1, 1, 50);
+	}
+
+	previous_value = val;
 	return static_cast<int16_t> (round(val));
 }
 
