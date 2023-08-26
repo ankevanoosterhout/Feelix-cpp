@@ -9,6 +9,13 @@
 #include "Filter.h"
 #include <Wire.h>
 
+#define TORQUETUNER
+#ifdef TORQUETUNER
+
+#include "haptics.h"
+
+#endif
+
 #define VELOCITY_FILTER_SIZE 8
 
 
@@ -35,7 +42,9 @@ class Feelix
 
     Feelix(BLDCMotor* bldc, BLDCDriver3PWM* driver, MagneticSensorSPI* sensor, InlineCurrentSense* current_sense, char _id, I2C_State _state);
     Feelix(BLDCMotor* bldc, BLDCDriver3PWM* driver, MagneticSensorSPI* sensor, char _id, I2C_State _state);
-
+  
+    Feelix(TorqueTuner* TT, char _id, I2C_State _state);
+    
 
     void init();
 
@@ -44,6 +53,7 @@ class Feelix
     void blinkStatusLED();
 
     void run(uint8_t loop_count);
+    void run(TorqueTuner* TT);
     void move();
     void moveTo();
 
@@ -78,6 +88,9 @@ class Feelix
 
     char* returnDataOnRequest();
     
+    TorqueTuner* TT;
+    void TorqueTuner_Lib_Reset();
+
     BLDCMotor* bldc;
     BLDCDriver3PWM* driver;
     MagneticSensorSPI* sensor;
@@ -143,6 +156,7 @@ class Feelix
     void velocityLimitProtection();
     bool transferData(char identifier, char* user_command);
 
+    void TorqueTuner_Data(char* cmd);
     void BLDC_Config(char* cmd);
     void BLDC_Data(char* cmd);
     void Effect_Data(char* cmd);

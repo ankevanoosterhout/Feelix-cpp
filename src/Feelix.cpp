@@ -84,6 +84,39 @@ Feelix::Feelix(BLDCMotor* _bldc, BLDCDriver3PWM* _driver, MagneticSensorSPI* _se
     overheat_count = 0;
 }
 
+Feelix::Feelix(TorqueTuner* _TT, char _id, I2C_State _state){
+    INITIALIZED = false;  
+    TT = _TT;
+    MOVE = false;
+    bldc = NULL;
+    sensor = NULL;
+    driver = NULL;
+    current_sense = NULL;
+    library.init();
+    communication_speed = 50;
+    control_type = Control_type::UNDEFINED;
+    range = 360.0;
+    start_pos = 0.0; //RAD
+    start_time = 0;
+    version.major = 3;
+    version.minor = 0;
+    version.patch = 0;
+    filter.init();
+    id = _id;
+    I2C_address = (int)strtol(&_id, NULL, 16);
+    I2C_state = _state;
+    dataRequestType = '\0';
+    nrOfConnectedDevices = 0;
+    blink_time = millis();
+    blink_interval = 1000;
+
+    for (int i = 0; i<VELOCITY_FILTER_SIZE; i++) {
+        velocity_filter[i] = 0.0;
+    }
+    velocity_filter_index = 0;
+    f_velocity = 0.0;
+    total_vel = 0.0;
+}
 
 
 
@@ -164,6 +197,8 @@ void Feelix::receiveDataI2C() {
 
 
 void Feelix::process_data(char* cmd) { 
+    Serial.println((String) cmd);
+
     char command = cmd[0];
     // char* fullCommand = strtok(cmd, "&");
     // fullCommand = strtok(0, "&");
@@ -171,40 +206,49 @@ void Feelix::process_data(char* cmd) {
     // Serial.println((String) "&" + fullCommand);
 
     switch (command) {
-        case 'M':
-            BLDC_Data(cmd);
-            break;
+        case 'T':
+            {TorqueTuner_Data(cmd);
+            break;}
+        // case 'M':
+        //     BLDC_Data(cmd);
+        //     break;
         case 'E':
-            Effect_Data(cmd);
-            break;
+            {Effect_Data(cmd);
+            break;}
         case 'D':
-            Data_Points(cmd);   
-            break; 
+            {Data_Points(cmd);   
+            break; }
         case 'C': 
-            BLDC_Config(cmd);            
-            break;
+            {BLDC_Config(cmd);            
+            break;}
         case 'F':
-            Filter_Data(cmd);
-            break;
+            {Filter_Data(cmd);
+            break;}
         case 'S':
-            Serial.println((String) "S" + version.major + '.' + version.minor + '.' + version.patch);
+            {Serial.println((String) "S" + version.major + '.' + version.minor + '.' + version.patch);
             Serial.println("*");
-            break;
+            break;}
         case 'G':
-            Return_Data(cmd);
-            break;
+           { Return_Data(cmd);
+            break;}
         case 'R':
+            {Serial.println("*");
+            break;}
+        case 'L':
+            {int devices = listDevices();
+            Serial.println((String) "Ldevices " + devices + " " + I2C_state);
+            break;}
+        default:
+        {
+            Serial.print("Unrecognized command:");
+            Serial.println((String) cmd);
             Serial.println("*");
             break;
-        case 'L':
-            int devices = listDevices();
-            Serial.println((String) "Ldevices " + devices + " " + I2C_state);
-            break;
+            }
     }
   
   delay(5);
 };
-
 
 
 
@@ -274,23 +318,23 @@ void Feelix::BLDC_Config(char* user_command) {
 
     // Serial.println((String) "CONFIG " + user_command[1]);
 
-    if (I2C_state == I2C_State::SLAVE) {
-        dataRequestType = 'C';
-    } 
+    // if (I2C_state == I2C_State::SLAVE) {
+    //     dataRequestType = 'C';
+    // } 
 
-    bldc->init();
-    bldc->initFOC();
+    // bldc->init();
+    // bldc->initFOC();
 
-    if (bldc->zero_electric_angle != NOT_SET && bldc->sensor_direction != NOT_SET) {
-        bldc->initFOC(bldc->zero_electric_angle, (bldc->sensor_direction == 1 ? Direction::CW : Direction::CCW));
-    } else {
-        bldc->initFOC();
-    }
+    // if (bldc->zero_electric_angle != NOT_SET && bldc->sensor_direction != NOT_SET) {
+    //     bldc->initFOC(bldc->zero_electric_angle, (bldc->sensor_direction == 1 ? Direction::CW : Direction::CCW));
+    // } else {
+    //     bldc->initFOC();
+    // }
     
-    if (current_sense != NULL) {
-        current_sense->init();
-        current_sense->gain_b *= -1;
-    }
+    // if (current_sense != NULL) {
+    //     current_sense->init();
+    //     current_sense->gain_b *= -1;
+    // }
 
     PROCESSING = false;
     INITIALIZED = true; 
@@ -299,32 +343,32 @@ void Feelix::BLDC_Config(char* user_command) {
 
     start_time = millis();    
 
-    
-    Serial.print((String) "Z" + id + ":");
-    Serial.print(bldc->zero_electric_angle, 18);
-    Serial.print(":");
-    Serial.println(bldc->sensor_direction);
+    Serial.println("recieved");
+    // Serial.print((String) "Z" + id + ":");
+    // Serial.print(bldc->zero_electric_angle, 18);
+    // Serial.print(":");
+    // Serial.println(bldc->sensor_direction);
         
     
-    // } else 
-    if (transferData(user_command[1], user_command)) {
-        volatile bool inlist = false;
-        address = convert_ID_to_I2C_address(&user_command[1]);
+    // // } else 
+    // if (transferData(user_command[1], user_command)) {
+    //     volatile bool inlist = false;
+    //     address = convert_ID_to_I2C_address(&user_command[1]);
 
-        for (int n = 0; n<nrOfConnectedDevices; n++) {
-            if (I2C_connections[n] == address) { inlist = true; }
-        }
+    //     for (int n = 0; n<nrOfConnectedDevices; n++) {
+    //         if (I2C_connections[n] == address) { inlist = true; }
+    //     }
         
-        if (!inlist) {
-            I2C_connections[nrOfConnectedDevices] = address;
-            Serial.println((String) "I2C_ADDRESS " + I2C_connections[nrOfConnectedDevices]);
-            nrOfConnectedDevices++;
-            Serial.println((String) "NR_I2C_CONNECTIONS " + nrOfConnectedDevices);            
-        }    
-        delay(300);      
-        Serial.println((String) "#request data " + address);
-        Wire.requestFrom(address, 24); 
-    }
+    //     if (!inlist) {
+    //         I2C_connections[nrOfConnectedDevices] = address;
+    //         Serial.println((String) "I2C_ADDRESS " + I2C_connections[nrOfConnectedDevices]);
+    //         nrOfConnectedDevices++;
+    //         Serial.println((String) "NR_I2C_CONNECTIONS " + nrOfConnectedDevices);            
+    //     }    
+    //     delay(300);      
+    //     Serial.println((String) "#request data " + address);
+    //     Wire.requestFrom(address, 24); 
+    // }
 }
 
 
@@ -345,67 +389,56 @@ void Feelix::update() {
 }
 
 
-
-
-void Feelix::run(uint8_t loop_count) {
-   
-    angle = (bldc->shaft_angle) * sensor_dir + sensor_offset; //(180 / 3.14159);
-    velocity = bldc->shaft_velocity * sensor_dir;
-    angle_deg = angle * _PI_DEG;
+void Feelix::run(TorqueTuner* TT){
+    angle = (float) TT->angle;
+    angle_deg = angle/10.0;
+    velocity = TT->velocity;
     getDirection();  
     f_velocity = filterVelocity();
     target = 0.0;
-    voltage = 0.0;
     control_type = Control_type::UNDEFINED;
     BREAK_LOOP = false;
 
-    if (RUN && !PROCESSING && loop_count % 2 == 0) {
-
+    if (RUN && !PROCESSING) {
         current_time = (millis() - start_time);
+
 
         if (constrain_range && (angle_deg > (start_pos + range) || angle <= start_pos)) {
             target_val = 0.0;
+
         } else {
             for (int e = 0; e < library.effect_count; e++) {
+                
 
                 active_effect = library.effect[e].isActive(angle_deg, rotation_dir, range, current_time);
-
+                // Serial.println(active_effect);
                 if (active_effect > -1) {
-                    
                     switch(library.effect[e].control_type) {
-
-                        case Control_type::POSITION: 
-                            if (control_type == Control_type::UNDEFINED || control_type == Control_type::POSITION) {
-                                control_type = Control_type::POSITION;
-                                float value = library.effect[e].getArrayPointerValue(library.effect[e].copy[active_effect], angle_deg, range);
-                                target += (library.getValueAtPointer(value, library.effect[e].data_ptr, 2, 0) * library.effect[e].scale.x * (library.effect[e].flip.x ? -1 : 1));
-                                voltage += (library.effect[e].getEffectVoltage(library.getValueAtPointer(value, library.effect[e].data_ptr, 2, 1)) * driver->voltage_power_supply); 
-                            }                 
-                            break;
-
+                        
                         case Control_type::TORQUE: 
                             if (control_type == Control_type::UNDEFINED || control_type == Control_type::TORQUE) {
                                 control_type = Control_type::TORQUE;
-                                float value = library.effect[e].getArrayPointerValue(library.effect[e].copy[active_effect], angle_deg, range);
-                                target += (library.effect[e].getEffectVoltage(library.getValueAtPointer(value, library.effect[e].data_ptr, 1, 0)) * driver->voltage_power_supply); 
-                                driver->voltage_limit = vol_limit;
+                                float ptr = library.effect[e].getArrayPointerValue(library.effect[e].copy[active_effect], angle_deg, range);
+                                target = library.getValueAtPointer(ptr, library.effect[e].data_ptr, 1, 0)*50.0; //TODO: Should technically add a gain value instead of a flat 25 etc
+                                // Serial.printf("Angle from TorqueTuner: %f",angle_deg);
+                                // Serial.print("********* Target: ");
+                                // Serial.print(target);
+                                // Serial.println(
+                                //     "*****************"
+                                // );
+                                TT->torque = target;
+                                
                             }
                             break;
-
-                        case Control_type::VELOCITY: 
-                            control_type = Control_type::VELOCITY;
-                            library.ptr.value = library.effect[e].getArrayPointerValueVelocityEffect(current_time);
-                            target = (library.effect[e].getVelocityOverTime(library.getValueAtPointerInt(library.ptr.value)) * bldc->velocity_limit); 
-                            driver->voltage_limit = driver->voltage_power_supply;
+                        case Control_type::MIDI:
+                            if (control_type == Control_type::UNDEFINED || control_type == Control_type::MIDI) {
+                                control_type = Control_type::MIDI;
+                                float ptr = library.effect[e].getArrayPointerValue(library.effect[e].copy[active_effect], angle_deg, range);
+                                target = library.getValueAtPointer(ptr, library.effect[e].data_ptr, 1, 0);
+                                int cmd = library.effect[e].midi_config.message_type + library.effect[e].midi_config.channel;
+                                TT->midi_CC_out(library.effect[e].midi_config.channel, library.effect[e].midi_config.data1, target);
+                            }
                             break;
-
-                        case Control_type::VELOCITY_ANGLE: 
-                            control_type = Control_type::VELOCITY_ANGLE;
-                            library.ptr.value = library.effect[e].getArrayPointerValueVelocityEffect(current_time);
-                            target = library.effect[e].getAngleOverTime(library.getValueAtPointerInt(library.ptr.value)); 
-                            driver->voltage_limit = driver->voltage_power_supply;
-                            break;
-
                     }
 
                     if (library.effect[e].effect_type == Effect_type::NOTSET) { BREAK_LOOP = true; }
@@ -415,91 +448,14 @@ void Feelix::run(uint8_t loop_count) {
             }
         }
     }
-    
-    bldc->loopFOC(); // simple foc function (not needed for )
-    if (RUN && loop_count % 2 == 0) {
-        move();
-
-        if (loop && current_time > range) {
-            start_time = millis();
-        }
-    } else if (MOVE && loop_count % 2 == 0) {
-        moveTo();
-    }
 }
 
 
 
 
-void Feelix::move() {
-    target_val = 0.0;
-
-    switch(control_type) {
-        case Control_type::POSITION: {
-            target_val = (bldc->shaft_angle + (target * sensor_dir) + sensor_offset);
-            driver->voltage_limit = voltage;
-            bldc->controller = MotionControlType::angle;
-            float newTarget = applyFilters(1, target_val);
-            bldc->move(newTarget);
-
-            // velocityLimitProtection();
-        }
-        break;
-
-        case Control_type::TORQUE:  {
-            target_val = (target * sensor_dir);
-            bldc->controller = MotionControlType::torque;
-            float newTarget = applyFilters(0, target_val);
-            bldc->move(newTarget);
-
-            // velocityLimitProtection();
-        } 
-        break;
-
-        case Control_type::VELOCITY:  {
-            target_val = target;
-            bldc->controller = MotionControlType::velocity;
-            float newTarget = applyFilters(2, target_val);
-            
-            bldc->move(newTarget);
-        }
-        break;
-
-        case Control_type::VELOCITY_ANGLE:  {
-            target_val = target * sensor_dir;
-            float newTarget = applyFilters(3, target_val);
-            bldc->controller = MotionControlType::angle;
-            bldc->move(newTarget);
-        } 
-        break;
-
-        case Control_type::UNDEFINED:  {
-            target_val = 0.0;
-            bldc->controller = MotionControlType::torque;
-            bldc->move(0.0);
-        }
-        default : {
-            target_val = 0.0;
-            bldc->controller = MotionControlType::torque;
-            bldc->move(0.0); 
-        }
-        break;
-    }  
-}
 
 
 
-void Feelix::moveTo() {
-    
-    if (angle - 0.015 > target_val && angle + 0.015 < target_val) {
-        MOVE = false;
-        target_val = 0.0;
-        bldc->controller = MotionControlType::torque;
-    } else {
-        bldc->controller = MotionControlType::angle;
-    }
-    bldc->move(target_val); 
-}
 
 
 
@@ -541,73 +497,13 @@ float Feelix::applyFilters(int controlType, float targetValue) {
 
 
 
-void Feelix::playHapticEffectAtAngle(FeelixEffect effect, float position) {
-    effect.copy[0] = angle;
-
-    if (effect.isHapticEffectActive(angle_deg, position, rotation_dir, range)) {
-     
-        switch(effect.control_type) {
-            case Control_type::POSITION: 
-                if (control_type == Control_type::UNDEFINED || control_type == Control_type::POSITION) {
-                    control_type = Control_type::POSITION;
-                    volatile float value = effect.getArrayPointerValue(position, angle_deg, range);
-                    target += effect.getValueAtPointer(value, 2, 0) * effect.scale.x * (effect.flip.x ? -1 : 1);
-                    voltage += (effect.getEffectVoltage(effect.getValueAtPointer(value, 2, 1)) * driver->voltage_power_supply); 
-                }                 
-                break;
-
-            case Control_type::TORQUE: 
-                if (control_type == Control_type::UNDEFINED || control_type == Control_type::TORQUE) {
-                    control_type = Control_type::TORQUE;
-                    volatile float value = effect.getArrayPointerValue(position, angle_deg, range);
-                    target += (effect.getEffectVoltage(effect.getValueAtPointer(value, 1, 0)) * driver->voltage_power_supply); 
-                    driver->voltage_limit = vol_limit;
-                }
-                break;
-
-            case Control_type::VELOCITY: 
-                break;
-            case Control_type::VELOCITY_ANGLE: 
-                break;
-            
-        }
-    }
-}
 
 
 
 
 
-void Feelix::playVelocityEffect(FeelixEffect effect) {
-    
-    if (effect.isVelocityEffectActive(angle_deg, current_time)) {
-     
-        switch(effect.control_type) {
-            case Control_type::VELOCITY: 
-                if (control_type == Control_type::UNDEFINED) {
-                    control_type = Control_type::VELOCITY;
-                    volatile uint16_t value = effect.getPointerValueVelocityEffect(current_time);
-                    target = (effect.getVelocityOverTime(effect.getValueAtPointer(value, 1, 0)) * bldc->velocity_limit); 
-                    driver->voltage_limit = driver->voltage_power_supply;
-                }
-                break;
 
-            case Control_type::VELOCITY_ANGLE: 
-                if (control_type == Control_type::UNDEFINED) {
-                    control_type = Control_type::VELOCITY_ANGLE;
-                    volatile uint16_t value = effect.getPointerValueVelocityEffect(current_time);
-                    target = effect.getAngleOverTime(effect.getValueAtPointer(value, 1, 0)); 
-                    driver->voltage_limit = driver->voltage_power_supply;
-                }
-                break;
-            case Control_type::POSITION: 
-                break;
-            case Control_type::TORQUE: 
-                break;
-            
-        }
-    }
-}
+
 
 
 
@@ -678,7 +574,13 @@ void Feelix::getDirection() {
     }
 }
 
-
+// void Feelix::getDirection(TorqueTuner* TT) {
+//     if (TT->velocity > 1.0) {
+//         rotation_dir = Direction::CW;
+//     } else if (TT->velocity < -1.0) {
+//         rotation_dir = Direction::CCW;
+//     }
+// }
 
 
 
@@ -709,7 +611,9 @@ float Feelix::filterVelocity() {
 
 
 
-
+void Feelix::TorqueTuner_Data(char* user_command){
+    char identifier = user_command[1];
+}
 
 void Feelix::BLDC_Data(char* user_command){ 
    
@@ -924,6 +828,7 @@ void Feelix::Return_Data(char* user_command) {
                 break;
         };
     }
+
 }
 
 
@@ -933,7 +838,7 @@ void Feelix::Effect_Data(char* user_command){
     char identifier = user_command[1];
     
     if (!transferData(identifier, user_command)) {
-
+        //SHOULD CHECK IF THERE IS A NULL VALUE IN STRTOK 
         uint8_t effect_id = atoi(&user_command[2]);
         char sub_cmd = user_command[3];
         char* value = strtok(user_command, ":");
@@ -945,7 +850,14 @@ void Feelix::Effect_Data(char* user_command){
         }
 
         switch(sub_cmd){
-
+            
+            case CMD_E_MIDI_CC:
+                library.effect[effect_id].midi_config.channel = atoi(value);
+                value = strtok(0, ":");
+                library.effect[effect_id].midi_config.message_type = atoi(value);
+                value = strtok(0, ":");
+                library.effect[effect_id].midi_config.data1 = atoi(value);
+                break;
             case CMD_E_DIR:  
                 library.effect[effect_id].direction.cw = atoi(value) == 1 ? true : false;
                 value = strtok(0, ":");
@@ -973,7 +885,6 @@ void Feelix::Effect_Data(char* user_command){
                 library.effect[effect_id].infinite = atoi(value) == 1 ? true : false;
                 break;
             case CMD_E_CONTROL_TYPE:
-                
                 if (atoi(value) == 0) {
                     library.effect[effect_id].control_type = Control_type::TORQUE;
                 } else if (atoi(value) == 1) {
@@ -984,6 +895,8 @@ void Feelix::Effect_Data(char* user_command){
                 } else if (atoi(value) == 3) {
                     library.effect[effect_id].control_type = Control_type::VELOCITY_ANGLE;
                     RUN = false;
+                } else if (atoi(value) == 4) {
+                    library.effect[effect_id].control_type = Control_type::MIDI;
                 }
                 break;
             case CMD_E_EFFECT_TYPE: 
@@ -1057,17 +970,16 @@ void Feelix::send_data() {
             dataRequestType = 'A';
         }
 
-        // } else if (I2C_state == I2C_State::MASTER) {
         
         if (CURRENT_SENSE_ACTIVE && current_sense != NULL) {
             getCurrentSenseValues();
 
             // if (I2C_state != I2C_State::SLAVE) {
-                Serial.println((String) "A" + id + ":" + angle + ":" + f_velocity + ":" + current_time + ":" + target_val + ":" + currents.a + ":" + currents.b);
+                // Serial.println((String) "A" + id + ":" + angle + ":" + f_velocity + ":" + current_time + ":" + target_val + ":" + currents.a + ":" + currents.b);
             // }
         } else {
             // if (I2C_state != I2C_State::SLAVE) {
-                Serial.println((String) "A" + id + ":" + angle + ":" + f_velocity + ":" + current_time + ":" + target_val);
+                // Serial.println((String) "A" + id + ":" + angle + ":" + f_velocity + ":" + current_time + ":" + target_val);
             // }
         }
 
