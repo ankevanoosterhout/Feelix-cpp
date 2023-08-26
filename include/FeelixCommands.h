@@ -42,6 +42,7 @@
 #define CMD_E_COPIES        'C' //!< copies of same effect
 #define CMD_E_CONTROL_TYPE  'T' //!< control type
 #define CMD_E_EFFECT_TYPE   'E' //!< visualization type
+#define CMD_E_MIDI_CC       'M' //!< Effect information for CC changes created by the midi
 #define CMD_E_DATA_SIZE     'Z'
 #define CMD_E_POINTER       'R'
 #define CMD_E_QUALITY       'Q'
